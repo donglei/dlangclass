@@ -18,7 +18,10 @@ import std.algorithm, std.typecons;
 	import std.stdio, std.uri;
 	auto sortbb= aa_sort(data);
 	string[] need_md5;
-	writeln(sortbb);
+	debug(info)
+	{
+		writeln(sortbb);
+	}
 	foreach( cc ; sortbb)
 	{
 		if(cc[0] == "sign")
@@ -28,7 +31,7 @@ import std.algorithm, std.typecons;
 		need_md5 ~= cc[0] ~ "=" ~ encodeComponent(cc[1]);
 	}
 	import std.digest.md, std.digest.sha, std.array;
-    import std.string: toLower;
+	import std.string: toLower;
 	return toHexString(md5Of(need_md5.join('&') ~ sign_key)).toLower();
  }
  
