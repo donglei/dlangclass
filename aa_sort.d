@@ -1,5 +1,10 @@
+/**
+* @author donglei
+*/
+
 import std.algorithm, std.typecons;
 
+///实现php中的ksort 功能
  Tuple!(K, V)[] aa_sort(K, V)(V[K] aa){
      typeof(return) r=[];
      foreach(k,v;aa) r~=tuple(k,v);
@@ -7,6 +12,7 @@ import std.algorithm, std.typecons;
      return r;
  }
  
+ /// 实现普通sign 签名功能
  string aa_sorted_sign(string[string] data, string sign_key = string.init)
  {
 	import std.stdio, std.uri;
@@ -31,7 +37,7 @@ import std.algorithm, std.typecons;
  {
 	auto bb = [
 		"name":"donglei",
-		"id":"123%?123",
+		"id":"8888",
 		"age":"123",
 		"age1":"123"
 	];
