@@ -1,6 +1,8 @@
 // Copyright (c) 2013, Peter Wood.
 // See license.txt for licensing details.
 
+module kerisy.utils.beastalkd;
+
 import std.algorithm, std.array, std.conv, std.outbuffer, std.socket, std.string;
 
 /**
@@ -114,7 +116,22 @@ class Connection {
     * This function is used to test whether a connection is open.
     */
    const @property bool isOpen() {
-      return(_socket !is null && _socket.isAlive);
+	   if(_socket !is null)
+	   {
+		   import std.c.linux.socket;
+		   tcp_info info; 
+		   uint len = info.sizeof; 
+		   getsockopt(_socket.handle(), IPPROTO_TCP, TCP_INFO, &info, &len); 
+		   if(info.tcpi_state==TCP_ESTABLISHED) 
+		   { 
+			   return true; 
+		   } 
+		   else 
+		   { 
+			   return false; 
+		   } 
+	   }
+		return false;
    }
 
    /**
@@ -910,3 +927,59 @@ class Job {
    private OutBuffer _buffer;
    private Tube      _tube;
 }
+
+private:
+extern (C):
+enum
+{
+	TCP_ESTABLISHED = 1,
+        TCP_SYN_SENT,
+        TCP_SYN_RECV,
+        TCP_FIN_WAIT1,
+        TCP_FIN_WAIT2,
+        TCP_TIME_WAIT,
+        TCP_CLOSE,
+        TCP_CLOSE_WAIT,
+        TCP_LAST_ACK,
+        TCP_LISTEN,
+        TCP_CLOSING   /* now a valid state */
+};
+struct tcp_info {
+	ubyte	tcpi_state;
+	ubyte	tcpi_ca_state;
+	ubyte	tcpi_retransmits;
+	ubyte	tcpi_probes;
+	ubyte	tcpi_backoff;
+	ubyte	tcpi_options;
+	align(4) ubyte	tcpi_snd_wscale , tcpi_rcv_wscale ;
+	uint	tcpi_rto;
+	uint	tcpi_ato;
+	uint	tcpi_snd_mss;
+	uint	tcpi_rcv_mss;
+	uint	tcpi_unacked;
+	uint	tcpi_sacked;
+	uint	tcpi_lost;
+	uint	tcpi_retrans;
+	uint	tcpi_fackets;
+	/* Times. */
+	uint	tcpi_last_data_sent;
+	uint	tcpi_last_ack_sent;     /* Not remembered, sorry. */
+	uint	tcpi_last_data_recv;
+	uint	tcpi_last_ack_recv;
+	/* Metrics. */
+	uint	tcpi_pmtu;
+	uint	tcpi_rcv_ssthresh;
+	uint	tcpi_rtt;
+	uint	tcpi_rttvar;
+	uint	tcpi_snd_ssthresh;
+	uint	tcpi_snd_cwnd;
+	uint	tcpi_advmss;
+	uint	tcpi_reordering;
+	uint	tcpi_rcv_rtt;
+	uint	tcpi_rcv_space;
+	uint	tcpi_total_retrans;
+	ulong	tcpi_pacing_rate;
+	ulong	tcpi_max_pacing_rate;
+	ulong	tcpi_bytes_acked; /* RFC4898 tcpEStatsAppHCThruOctetsAcked */
+	ulong	tcpi_bytes_received; /* RFC4898 tcpEStatsAppHCThruOctetsReceived */
+};
