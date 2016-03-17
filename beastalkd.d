@@ -464,7 +464,85 @@ class Tube {
          throw(new StalkdException(to!string("Server responded with a " ~ response ~ " error.")));
       }
    }
+	
+   /**
+    * 获取job 的状态
+	*	id 表示job id
+	* tube 表示tube的名称
+	* state 表示job的当前状态
+	* pri 表示job的优先级
+	* age 表示job创建的时间单位秒
+	* time-left 表示job的状态迁移为ready的时间，仅在job状态为reserved或者delayed时有意义，当job状态为reserved时表示剩余的超时时间。
+	* file 表示包含此job的binlog序号，如果没有开启它将为0
+	* reserves 表示job被reserved的次数
+	* timeouts 表示job处理的超时时间
+	* releases 表示job被released的次数
+	* buries 表示job被buried的次数
+	* kicks 表示job被kiced的次数
+    */
+   public string[string] statsJob(uint jobId)
+   {
+		char[] response = new char[100];
+		send(null, "stats-job", jobId);
+		 auto total = _connection.socket.receive(response);
+      if(total == Socket.ERROR) {
+         throw(new StalkdException("Error reading from server connection."));
+      } else if(total == 0) {
+         throw(new StalkdException("Connection to server unexpectedly terminated."));
+      }
+	  response = response[0..total];
+      OutBuffer buffer;
+	  
+      if(response.startsWith("OK")) {
+         ulong     read,
+                   size;
+         size_t[]  offsets = [0, 0, 0];
 
+         offsets[0] = std.string.indexOf(response, " ");
+         offsets[1] = std.string.indexOf(response, "\r\n", (offsets[0] + 1));
+         offsets[2] = std.string.indexOf(response, "---", (offsets[1] + 2));
+		 
+         if(!offsets.find(-1).empty) {
+            throw(new StalkdException("Unrecognised response received from server."));
+         }
+
+         size  = to!uint(response[(offsets[0] + 1)..offsets[1]]);
+         read   = response.length - (offsets[2]);
+         buffer = new OutBuffer;
+         buffer.reserve(cast(uint)size);
+
+         if(read > 0) {
+            auto endPoint  = response.length,
+                 available = endPoint - (offsets[2]);
+
+            while(available > size) {
+               endPoint--;
+               available = endPoint - (offsets[2]);
+            }
+
+            buffer.write(response[(offsets[2])..endPoint]);
+         }
+         if(size > read) {
+            readInJobData(buffer, cast(uint)(size - read));
+         }
+		//	std.stdio.writeln(buffer.toString());
+      } else if(!response.startsWith("NOT_FOUND")) {
+         response.chomp();
+         throw(new StalkdException(to!string("2. Server returned a " ~ response ~ " error.")));
+      }
+	  auto lines = buffer.toString().splitLines();
+	  string[string] res;
+	  foreach(string line; lines)
+	  {
+		auto pos = line.indexOf(": ");
+		if( pos == -1)
+		{
+			continue;
+		}
+		res[line[0 .. pos]] = line[pos+2 .. $];
+	  }
+	 return res;
+   }
    /**
     * This function 'peeks' at the Beanstalk ready queue to see if there is a
     * job available. If there is a job is is returned. Note that peeking does
@@ -912,6 +990,13 @@ class Job {
       _tube.buryJob(_id, priority);
    }
 
+	string[string] stats()
+	{
+		if(_tube is null) {
+         throw(new StalkdException("Job is not associated with a tube and cannot be buried."));
+		}
+		return _tube.statsJob(_id);
+	}
    /**
     * This function touchs a job on Beanstalk, extending its time to run. Note
     * that only reserved jobs can be touched.
